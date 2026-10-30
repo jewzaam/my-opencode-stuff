@@ -1,0 +1,9 @@
+{
+  "permissions": [
+    { "action": "shell", "resource": "gh pr view *", "effect": "allow" },
+    { "action": "shell", "resource": "gh pr list *", "effect": "allow" },
+    { "action": "shell", "resource": "gh pr diff *", "effect": "allow" },
+    { "action": "shell", "resource": "gh issue view *", "effect": "allow" },
+    { "action": "shell", "resource": "gh issue list *", "effect": "allow" }
+  ]
+}

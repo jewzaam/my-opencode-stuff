@@ -1,0 +1,5 @@
+{
+  "permissions": [
+    { "action": "shell", "resource": "~/.claude/skills/*", "effect": "allow" }
+  ]
+}

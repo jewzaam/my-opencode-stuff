@@ -1,0 +1,24 @@
+{
+  "permissions": [
+    { "action": "shell", "resource": "git push *", "effect": "deny" },
+    { "action": "shell", "resource": "git pull *", "effect": "deny" },
+    { "action": "shell", "resource": "git add *", "effect": "deny" },
+    { "action": "shell", "resource": "git rebase *", "effect": "deny" },
+    { "action": "shell", "resource": "sudo *", "effect": "deny" },
+    { "action": "shell", "resource": "su *", "effect": "deny" },
+    { "action": "shell", "resource": "rm *", "effect": "deny" },
+    { "action": "shell", "resource": "mv *", "effect": "deny" },
+    { "action": "shell", "resource": "sed -i *", "effect": "deny" }
+  ],
+  "policies": [
+    { "action": "tool.use", "resource": "shell:git push *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git pull *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git add *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git rebase *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:sudo *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:su *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:rm *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:mv *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:sed -i *", "effect": "deny" }
+  ]
+}

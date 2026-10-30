@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+# Superseded flat config. Fragments in opencode/opencode.json.d/ are the source.
+opencode/opencode.json

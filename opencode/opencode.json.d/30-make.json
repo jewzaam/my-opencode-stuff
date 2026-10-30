@@ -1,0 +1,11 @@
+{
+  "permissions": [
+    { "action": "shell", "resource": "make check", "effect": "allow" },
+    { "action": "shell", "resource": "make help", "effect": "allow" },
+    { "action": "shell", "resource": "make test-format", "effect": "allow" },
+    { "action": "shell", "resource": "make test-lint", "effect": "allow" },
+    { "action": "shell", "resource": "make test-typecheck", "effect": "allow" },
+    { "action": "shell", "resource": "make test-unit", "effect": "allow" },
+    { "action": "shell", "resource": "make test-coverage", "effect": "allow" }
+  ]
+}

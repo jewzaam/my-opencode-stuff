@@ -1,0 +1,7 @@
+{
+  "permissions": [
+    { "action": "shell", "resource": "bash -n *", "effect": "allow" },
+    { "action": "shell", "resource": "python -m py_compile *", "effect": "allow" },
+    { "action": "shell", "resource": "python3 -m py_compile *", "effect": "allow" }
+  ]
+}
