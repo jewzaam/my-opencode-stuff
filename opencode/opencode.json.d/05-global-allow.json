@@ -4,6 +4,9 @@
     { "action": "shell", "resource": "pwd", "effect": "allow" },
 
     { "action": "external_directory", "resource": "~/source/knowledgebase/*", "effect": "allow" },
-    { "action": "external_directory", "resource": "~/source/standards/*", "effect": "allow" }
+    { "action": "external_directory", "resource": "~/source/standards/*", "effect": "allow" },
+
+    { "action": "edit", "resource": "~/source/knowledgebase/**", "effect": "allow" },
+    { "action": "edit", "resource": "~/source/standards/**", "effect": "allow" }
   ]
 }
