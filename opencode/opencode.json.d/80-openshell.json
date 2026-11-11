@@ -1,0 +1,12 @@
+{
+  // Read-only OpenShell inspection commands.
+  "permissions": [
+    { "action": "shell", "resource": "openshell * --help", "effect": "allow" },
+    { "action": "shell", "resource": "openshell --help", "effect": "allow" },
+    { "action": "shell", "resource": "openshell gateway list", "effect": "allow" },
+    { "action": "shell", "resource": "openshell sandbox list", "effect": "allow" },
+    { "action": "shell", "resource": "openshell settings get *", "effect": "allow" },
+    { "action": "shell", "resource": "openshell-gateway * --help", "effect": "allow" },
+    { "action": "shell", "resource": "openshell-gateway --help", "effect": "allow" }
+  ]
+}

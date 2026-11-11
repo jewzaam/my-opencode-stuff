@@ -1,11 +1,19 @@
 {
+  // Read-only/check make targets. `make reconcile` is denied by the guard.
   "permissions": [
+    { "action": "shell", "resource": "make -p -n", "effect": "allow" },
     { "action": "shell", "resource": "make check", "effect": "allow" },
     { "action": "shell", "resource": "make help", "effect": "allow" },
+    { "action": "shell", "resource": "make links", "effect": "allow" },
+    { "action": "shell", "resource": "make markdown-lint", "effect": "allow" },
+    { "action": "shell", "resource": "make reachability", "effect": "allow" },
+    { "action": "shell", "resource": "make test-complexity", "effect": "allow" },
+    { "action": "shell", "resource": "make test-coverage", "effect": "allow" },
     { "action": "shell", "resource": "make test-format", "effect": "allow" },
+    { "action": "shell", "resource": "make test-link", "effect": "allow" },
     { "action": "shell", "resource": "make test-lint", "effect": "allow" },
     { "action": "shell", "resource": "make test-typecheck", "effect": "allow" },
     { "action": "shell", "resource": "make test-unit", "effect": "allow" },
-    { "action": "shell", "resource": "make test-coverage", "effect": "allow" }
+    { "action": "shell", "resource": "make version-check", "effect": "allow" }
   ]
 }

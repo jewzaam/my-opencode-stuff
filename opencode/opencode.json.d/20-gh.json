@@ -1,9 +1,26 @@
 {
+  // Read-only gh. `gh api` is deliberately absent: the shared guard misses
+  // attached method flags (`--method=DELETE`, `-XDELETE`), so it falls to ask.
   "permissions": [
-    { "action": "shell", "resource": "gh pr view *", "effect": "allow" },
-    { "action": "shell", "resource": "gh pr list *", "effect": "allow" },
-    { "action": "shell", "resource": "gh pr diff *", "effect": "allow" },
+    { "action": "shell", "resource": "gh auth status", "effect": "allow" },
+    { "action": "shell", "resource": "gh issue list *", "effect": "allow" },
     { "action": "shell", "resource": "gh issue view *", "effect": "allow" },
-    { "action": "shell", "resource": "gh issue list *", "effect": "allow" }
+    { "action": "shell", "resource": "gh label list *", "effect": "allow" },
+    { "action": "shell", "resource": "gh pr checks *", "effect": "allow" },
+    { "action": "shell", "resource": "gh pr diff *", "effect": "allow" },
+    { "action": "shell", "resource": "gh pr list *", "effect": "allow" },
+    { "action": "shell", "resource": "gh pr status *", "effect": "allow" },
+    { "action": "shell", "resource": "gh pr view *", "effect": "allow" },
+    { "action": "shell", "resource": "gh project item-list *", "effect": "allow" },
+    { "action": "shell", "resource": "gh project view *", "effect": "allow" },
+    { "action": "shell", "resource": "gh release list *", "effect": "allow" },
+    { "action": "shell", "resource": "gh release view *", "effect": "allow" },
+    { "action": "shell", "resource": "gh repo list *", "effect": "allow" },
+    { "action": "shell", "resource": "gh repo view *", "effect": "allow" },
+    { "action": "shell", "resource": "gh run list *", "effect": "allow" },
+    { "action": "shell", "resource": "gh run view *", "effect": "allow" },
+    { "action": "shell", "resource": "gh search *", "effect": "allow" },
+    { "action": "shell", "resource": "gh workflow list *", "effect": "allow" },
+    { "action": "shell", "resource": "gh workflow view *", "effect": "allow" }
   ]
 }
