@@ -33,6 +33,20 @@ const PATH_KEYS = [
 const TOOL_PATH_FIELDS = { Grep: "path", Glob: "pattern" };
 const ACTION_TOOLS = { grep: "Grep", glob: "Glob" };
 
+// Permission actions the fragments can decide. Anything else (MCP tool calls
+// included) is downgraded to ask in the permission hook.
+const KNOWN_ACTIONS = new Set([
+  "shell",
+  "read",
+  "edit",
+  "write",
+  "grep",
+  "glob",
+  "external_directory",
+  "skill",
+  "question",
+]);
+
 // Chained segments bypass the shell allows' command word. These are the
 // highest-value dump primitives; the shared guard has no rule for them.
 const ENV_DUMP_COMMANDS = new Set(["env", "printenv", "set"]);
@@ -182,6 +196,8 @@ export function loadRules(configPath) {
     return {
       permissions: Array.isArray(data.permissions) ? data.permissions : [],
       policies: Array.isArray(data.policies) ? data.policies : [],
+      available: true,
+      error: null,
     };
   } catch (error) {
     if (!warnedRules.has(configPath)) {
@@ -190,7 +206,12 @@ export function loadRules(configPath) {
         `[harness-guards] permission rules unavailable at ${configPath}: ${error.message}`,
       );
     }
-    return { permissions: [], policies: [] };
+    return {
+      permissions: [],
+      policies: [],
+      available: false,
+      error: error.message,
+    };
   }
 }
 
@@ -214,13 +235,19 @@ export function globMatches(pattern, value) {
   const body = pattern.endsWith(" *")
     ? `${globBody(pattern.slice(0, -2))}( .*)?`
     : globBody(pattern);
-  return new RegExp(`^${body}$`, "s").test(value);
+  // No `s` flag: OpenCode compiles `*` to `.*`, which does not cross a newline.
+  // This mirrors the Python matcher in tests/test_reconcile.py.
+  return new RegExp(`^${body}$`).test(value);
 }
 
 export function splitSegments(command) {
   const segments = [];
   let current = "";
   let quote = null;
+  const push = () => {
+    segments.push(current);
+    current = "";
+  };
   for (let index = 0; index < command.length; index += 1) {
     const char = command[index];
     if (quote) {
@@ -233,15 +260,28 @@ export function splitSegments(command) {
       current += char;
       continue;
     }
-    if ((char === "&" || char === "|") && command[index + 1] === char) {
-      segments.push(current);
-      current = "";
-      index += 1;
+    // `&&`, `||`, and `|&` are two-character operators; consume both. A lone
+    // `&` (background), `|`, `;`, and a newline all end the current segment.
+    // `&` next to `>` is a redirection (`2>&1`, `&>file`), not an operator.
+    if (char === "&") {
+      const previous = command[index - 1];
+      const next = command[index + 1];
+      if (previous === ">" || next === ">") {
+        current += char;
+        continue;
+      }
+      if (next === "&") index += 1;
+      push();
       continue;
     }
-    if (char === "|" || char === ";") {
-      segments.push(current);
-      current = "";
+    if (char === "|") {
+      const next = command[index + 1];
+      if (next === "|" || next === "&") index += 1;
+      push();
+      continue;
+    }
+    if (char === ";" || char === "\n" || char === "\r") {
+      push();
       continue;
     }
     current += char;
@@ -309,8 +349,8 @@ export function shellProblem(command) {
   if (command.includes("<(")) {
     return "process substitution is not allowed";
   }
-  for (const segment of command.split(/&&|\|\||[|;]/)) {
-    const first = segment.trim().split(/\s+/)[0] || "";
+  for (const segment of splitSegments(command)) {
+    const first = segment.split(/\s+/)[0] || "";
     if (ENV_DUMP_COMMANDS.has(first)) {
       return `environment dump (${first}) is not allowed`;
     }
@@ -388,9 +428,26 @@ const plugin = {
   id: "harness-guards",
   async setup(ctx) {
     const cwd = ctx?.location?.directory || process.cwd();
-    const configDir =
-      process.env.OPENCODE_DIR || join(homedir(), ".config", "opencode");
-    const rules = loadRules(join(configDir, "opencode.json"));
+    const configHome = process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
+    const configDir = process.env.OPENCODE_DIR || join(configHome, "opencode");
+    const configPath = join(configDir, "opencode.json");
+    const rules = loadRules(configPath);
+
+    if (!rules.available) {
+      // Fail closed: with no rules the per-segment layer cannot resolve
+      // anything, so deny every action rather than silently permitting.
+      const message =
+        `BLOCKED: permission rules unavailable at ${configPath}: ${rules.error}. ` +
+        "Refusing to run unguarded; fix the config and restart.";
+      await ctx.tool.hook("execute.before", () => {
+        throw new Error(message);
+      });
+      await ctx.permission.hook("evaluate", (event) => {
+        event.effect = "deny";
+        event.message = message;
+      });
+      return;
+    }
 
     await ctx.tool.hook("execute.before", (event) => {
       try {
@@ -422,6 +479,13 @@ const plugin = {
         if (message) {
           event.effect = "deny";
           event.message = message;
+          return;
+        }
+        // Any action the plugin does not model (MCP tool calls included) has no
+        // rule here, so it must not be silently allowed.
+        if (!KNOWN_ACTIONS.has(event.action) && event.effect !== "deny") {
+          event.effect = "ask";
+          event.message = `Approval required for unrecognized action: ${event.action}`;
           return;
         }
         if (event.action !== "shell" || !Array.isArray(event.resources)) return;

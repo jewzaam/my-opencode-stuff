@@ -185,6 +185,8 @@ test("tool payloads use known shell tools, patch headers, and webfetch", () => {
 
 test("shell chains cannot smuggle env dumps or traversal", () => {
   assert.match(shellProblem("git status && env"), /environment dump/);
+  assert.match(shellProblem("git status & env"), /environment dump/);
+  assert.match(shellProblem("git status\nenv"), /environment dump/);
   assert.match(shellProblem("git status <<<x && git push"), /heredoc/);
   assert.match(shellProblem("bash -n <(curl http://x)"), /process substitution/);
   assert.match(shellProblem("git log | printenv"), /environment dump/);
@@ -227,6 +229,30 @@ test("chain segments resolve independently", () => {
     chainVerdicts("git status $(python /tmp/evil.py)", permissions, policies),
     { deny: [], ask: ["python /tmp/evil.py"] },
   );
+  // A lone `&` is a background operator, not part of the previous command.
+  assert.deepEqual(splitSegments("git status & git log"), ["git status", "git log"]);
+  assert.deepEqual(
+    chainVerdicts("git status & rm -rf build", permissions, policies),
+    { deny: ["rm -rf build"], ask: [] },
+  );
+  assert.deepEqual(
+    chainVerdicts("git status & python /tmp/evil.py", permissions, policies),
+    { deny: [], ask: ["python /tmp/evil.py"] },
+  );
+  // Newlines and `|&` end a segment the same way.
+  assert.deepEqual(splitSegments("git status\ngit log"), ["git status", "git log"]);
+  assert.deepEqual(splitSegments("git status |& git log"), ["git status", "git log"]);
+  // Redirections are not chain operators.
+  assert.deepEqual(splitSegments("git status 2>&1"), ["git status 2>&1"]);
+  assert.deepEqual(splitSegments("git status >&2"), ["git status >&2"]);
+  assert.deepEqual(splitSegments("git status &> /tmp/x"), ["git status &> /tmp/x"]);
+});
+
+test("glob matching does not cross newlines", () => {
+  // Mirrors the Python matcher: `*` compiles to `.*`, which stops at a newline.
+  assert.ok(globMatches("*", "a b"));
+  assert.equal(globMatches("*", "a\nb"), false);
+  assert.equal(globMatches("git status *", "git status\ngit log"), false);
 });
 
 test("loadRules reads the deployed config", () => {
@@ -242,15 +268,93 @@ test("loadRules reads the deployed config", () => {
   assert.deepEqual(loadRules(file), {
     permissions: [{ action: "shell", resource: "x *", effect: "allow" }],
     policies: [],
+    available: true,
+    error: null,
   });
-  assert.deepEqual(loadRules(join(directory, "absent.json")), {
-    permissions: [],
-    policies: [],
-  });
+  const absent = loadRules(join(directory, "absent.json"));
+  assert.equal(absent.available, false);
+  assert.deepEqual(absent.permissions, []);
+  assert.deepEqual(absent.policies, []);
+  assert.match(absent.error, /ENOENT/);
 });
 
-test("guard failure blocks the action with the exact error", async () => {
+test("unreadable permission rules fail closed", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "hg-norules-"));
+  const previous = process.env.OPENCODE_DIR;
+  process.env.OPENCODE_DIR = directory;
+  try {
+    const { hooks, ctx } = fakeContext("/repo");
+    await plugin.setup(ctx);
+    assert.throws(
+      () =>
+        hooks["tool:execute.before"]({
+          tool: "shell",
+          input: { command: "git status --short" },
+        }),
+      /BLOCKED: permission rules unavailable/,
+    );
+    const event = {
+      action: "shell",
+      resources: ["git status --short"],
+      effect: "allow",
+    };
+    hooks["permission:evaluate"](event);
+    assert.equal(event.effect, "deny");
+    assert.match(event.message, /permission rules unavailable/);
+  } finally {
+    if (previous === undefined) delete process.env.OPENCODE_DIR;
+    else process.env.OPENCODE_DIR = previous;
+  }
+});
+
+test("unrecognized permission actions downgrade to ask", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "hg-actions-"));
+  writeFileSync(
+    join(directory, "opencode.json"),
+    JSON.stringify({
+      permissions: [{ action: "*", resource: "*", effect: "ask" }],
+      policies: [],
+    }),
+  );
+  const previous = process.env.OPENCODE_DIR;
+  process.env.OPENCODE_DIR = directory;
+  try {
+    const { hooks, ctx } = fakeContext("/repo");
+    await plugin.setup(ctx);
+    const evaluate = hooks["permission:evaluate"];
+
+    // An MCP tool call: not a modeled action, so it must not pass as allow.
+    const mcp = { action: "mcp", resources: ["server/tool"], effect: "allow" };
+    evaluate(mcp);
+    assert.equal(mcp.effect, "ask");
+    assert.match(mcp.message, /unrecognized action: mcp/);
+
+    // A modeled, allowlisted action is left alone.
+    const question = { action: "question", resources: ["*"], effect: "allow" };
+    evaluate(question);
+    assert.equal(question.effect, "allow");
+  } finally {
+    if (previous === undefined) delete process.env.OPENCODE_DIR;
+    else process.env.OPENCODE_DIR = previous;
+  }
+});
+
+test("guard failure blocks the action with the exact error", async (t) => {
   clearWarnedModules();
+  const directory = mkdtempSync(join(tmpdir(), "hg-fail-"));
+  writeFileSync(
+    join(directory, "opencode.json"),
+    JSON.stringify({
+      permissions: [{ action: "*", resource: "*", effect: "ask" }],
+      policies: [],
+    }),
+  );
+  const previousDir = process.env.OPENCODE_DIR;
+  process.env.OPENCODE_DIR = directory;
+  t.after(() => {
+    if (previousDir === undefined) delete process.env.OPENCODE_DIR;
+    else process.env.OPENCODE_DIR = previousDir;
+  });
   const previous = process.env.OPENCODE_GUARD_PYTHON;
   process.env.OPENCODE_GUARD_PYTHON = join(HERE, "missing-python");
   const errors = [];
@@ -328,6 +432,19 @@ test("guard fixture blocks the pinned deny paths", () => {
   assert.equal(allowedPath.status, 0);
 });
 
+test("glob and grep tool paths reach the path guard", () => {
+  // Grep reads `path`, Glob reads `pattern`; a fixture that omits either field
+  // turns the check into a silent no-op.
+  assert.match(
+    checkTool("glob", { pattern: "~/.ssh/*", path: "~/.ssh" }, "/repo"),
+    /BLOCKED: access to ~\/.ssh/,
+  );
+  assert.match(
+    checkTool("grep", { pattern: "needle", path: "~/.ssh" }, "/repo"),
+    /BLOCKED: access to ~\/.ssh/,
+  );
+});
+
 test("a project-local harness_guards cannot shadow the guard", () => {
   const shadow = mkdtempSync(join(tmpdir(), "hg-shadow-"));
   mkdirSync(join(shadow, "harness_guards"));
@@ -386,7 +503,15 @@ test("permission evaluate downgrades chained segments", async () => {
   }
 });
 
-test("registered hooks block commands, paths, patches, and permissions", async () => {
+test("registered hooks block commands, paths, patches, and permissions", async (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "hg-hooks-"));
+  writeFileSync(join(directory, "opencode.json"), "{}");
+  const previous = process.env.OPENCODE_DIR;
+  process.env.OPENCODE_DIR = directory;
+  t.after(() => {
+    if (previous === undefined) delete process.env.OPENCODE_DIR;
+    else process.env.OPENCODE_DIR = previous;
+  });
   const cwd = "/repo";
   const { hooks, ctx } = fakeContext(cwd);
   await plugin.setup(ctx);

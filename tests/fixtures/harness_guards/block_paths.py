@@ -23,10 +23,15 @@ PATTERNS = [
     (re.compile(r"/\.env$"), ".env file"),
 ]
 
+# Must mirror the real module's per-tool field mapping: the plugin sends
+# `file_path` for Read/Edit/Write, `path` for Grep, and `pattern` for Glob.
+# A missing entry here makes the corresponding check a silent no-op.
 PATH_FIELDS = {
     "Read": ["file_path"],
     "Edit": ["file_path"],
     "Write": ["file_path"],
+    "Grep": ["path"],
+    "Glob": ["pattern"],
 }
 
 
