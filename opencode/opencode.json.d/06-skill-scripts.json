@@ -1,0 +1,30 @@
+{
+  // Skill script execution for cited-research/dump/gws-cli. The only direct
+  // writes are `mkdir -p` into the fixed research-data directories.
+  // external_directory opens only the boundary; 50-secrets still denies
+  // sensitive files.
+  "permissions": [
+    { "action": "shell", "resource": "bash ~/.claude/skills/cited-research/scripts/* *", "effect": "allow" },
+    { "action": "shell", "resource": "python ~/.claude/skills/cited-research/scripts/* *", "effect": "allow" },
+    { "action": "shell", "resource": "python3 ~/.claude/skills/cited-research/scripts/* *", "effect": "allow" },
+    { "action": "shell", "resource": "mkdir -p /tmp/cited-research", "effect": "allow" },
+    { "action": "shell", "resource": "mkdir -p ~/.local/share/cited-research-data/*", "effect": "allow" },
+
+    { "action": "shell", "resource": "bash */.claude/skills/dump/scripts/* *", "effect": "allow" },
+    { "action": "shell", "resource": "python */.claude/skills/dump/scripts/* *", "effect": "allow" },
+    { "action": "shell", "resource": "python3 */.claude/skills/dump/scripts/* *", "effect": "allow" },
+
+    { "action": "shell", "resource": "python ~/source/gws-cli-notes/scripts/* *", "effect": "allow" },
+    { "action": "shell", "resource": "python3 ~/source/gws-cli-notes/scripts/* *", "effect": "allow" },
+
+    { "action": "external_directory", "resource": "~/.claude/skills/*", "effect": "allow" },
+    { "action": "external_directory", "resource": "~/source/gws-cli-notes/*", "effect": "allow" },
+    { "action": "external_directory", "resource": "~/source/cited-research/*", "effect": "allow" },
+    { "action": "external_directory", "resource": "~/.local/share/cited-research-data/*", "effect": "allow" },
+    { "action": "external_directory", "resource": "/tmp/cited-research/*", "effect": "allow" },
+    { "action": "external_directory", "resource": "~/Pictures/Screenshots/*", "effect": "allow" },
+
+    { "action": "skill", "resource": "fix", "effect": "allow" },
+    { "action": "skill", "resource": "voice", "effect": "allow" }
+  ]
+}

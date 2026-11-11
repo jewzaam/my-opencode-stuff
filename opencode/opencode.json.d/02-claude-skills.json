@@ -1,5 +1,6 @@
 {
-  "permissions": [
-    { "action": "shell", "resource": "~/.claude/skills/**", "effect": "allow" }
-  ]
+  // Claude-compatible skill root. The literal shell allow for `~/.claude/skills/*`
+  // lives in 05-global-allow.json, next to the $HOME and absolute-path variants
+  // it already matched; a second copy here was dropped by the merge and had no
+  // effect.
 }

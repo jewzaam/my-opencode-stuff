@@ -1,24 +1,129 @@
 {
+  // Last file: these denies win over every earlier allow. Flag-nuanced cases
+  // (git clean -n, git branch --list, git restore --staged) are left to the
+  // guard plugin because a glob would over-block them.
+  //
+  // Bare-command matching: OpenCode compiles a trailing `" *"` to `"( .*)?"`,
+  // so `git push *` also matches `git push`. The explicit `git commit` and
+  // `git stash` rules are kept for readability only; they are redundant.
   "permissions": [
+    { "action": "shell", "resource": "git add *", "effect": "deny" },
     { "action": "shell", "resource": "git push *", "effect": "deny" },
     { "action": "shell", "resource": "git pull *", "effect": "deny" },
-    { "action": "shell", "resource": "git add *", "effect": "deny" },
+    { "action": "shell", "resource": "git reset *", "effect": "deny" },
     { "action": "shell", "resource": "git rebase *", "effect": "deny" },
+    { "action": "shell", "resource": "git filter-branch *", "effect": "deny" },
+    { "action": "shell", "resource": "git filter-repo *", "effect": "deny" },
+    { "action": "shell", "resource": "git reflog expire *", "effect": "deny" },
+    { "action": "shell", "resource": "git gc *--prune=now*", "effect": "deny" },
+    { "action": "shell", "resource": "git checkout *", "effect": "deny" },
+    { "action": "shell", "resource": "git commit", "effect": "deny" },
+    { "action": "shell", "resource": "git commit *", "effect": "deny" },
+    { "action": "shell", "resource": "git stash", "effect": "deny" },
+    { "action": "shell", "resource": "git stash *", "effect": "deny" },
+
+    // `gh auth status` is the only allowed gh auth form; the token flags print
+    // the OAuth token in clear text.
+    { "action": "shell", "resource": "gh auth status *--show-token*", "effect": "deny" },
+    { "action": "shell", "resource": "gh auth status *-t*", "effect": "deny" },
+
     { "action": "shell", "resource": "sudo *", "effect": "deny" },
     { "action": "shell", "resource": "su *", "effect": "deny" },
     { "action": "shell", "resource": "rm *", "effect": "deny" },
     { "action": "shell", "resource": "mv *", "effect": "deny" },
-    { "action": "shell", "resource": "sed -i *", "effect": "deny" }
+    { "action": "shell", "resource": "sed -i *", "effect": "deny" },
+    { "action": "shell", "resource": "sed *--in-place*", "effect": "deny" },
+    { "action": "shell", "resource": "find *-delete*", "effect": "deny" },
+    { "action": "shell", "resource": "chmod *", "effect": "deny" },
+    { "action": "shell", "resource": "truncate *", "effect": "deny" },
+    { "action": "shell", "resource": "shred *", "effect": "deny" },
+    { "action": "shell", "resource": "mkfs *", "effect": "deny" },
+    { "action": "shell", "resource": "dd *", "effect": "deny" },
+
+    { "action": "shell", "resource": "npm publish *", "effect": "deny" },
+    { "action": "shell", "resource": "twine upload *", "effect": "deny" },
+    { "action": "shell", "resource": "gem push *", "effect": "deny" },
+    { "action": "shell", "resource": "cargo publish *", "effect": "deny" },
+    { "action": "shell", "resource": "dotnet nuget push *", "effect": "deny" },
+
+    { "action": "shell", "resource": "nc *", "effect": "deny" },
+    { "action": "shell", "resource": "netcat *", "effect": "deny" },
+    { "action": "shell", "resource": "ncat *", "effect": "deny" },
+    { "action": "shell", "resource": "scp *", "effect": "deny" },
+    { "action": "shell", "resource": "rsync *", "effect": "deny" },
+    { "action": "shell", "resource": "sftp *", "effect": "deny" },
+    { "action": "shell", "resource": "ftp *", "effect": "deny" },
+    { "action": "shell", "resource": "telnet *", "effect": "deny" },
+    { "action": "shell", "resource": "ssh *", "effect": "deny" },
+    { "action": "shell", "resource": "socat *", "effect": "deny" },
+
+    { "action": "shell", "resource": "pip install *", "effect": "deny" },
+    { "action": "shell", "resource": "pip3 install *", "effect": "deny" },
+    { "action": "shell", "resource": "python -m pip install *", "effect": "deny" },
+    { "action": "shell", "resource": "python3 -m pip install *", "effect": "deny" },
+    { "action": "shell", "resource": "npm install *", "effect": "deny" },
+    { "action": "shell", "resource": "cargo install *", "effect": "deny" },
+    { "action": "shell", "resource": "go install *", "effect": "deny" },
+
+    { "action": "shell", "resource": "semgrep *", "effect": "deny" }
   ],
   "policies": [
+    // Mirrors the shell denies above. tests/test_reconcile.py pins the parity.
+    { "action": "tool.use", "resource": "shell:git add *", "effect": "deny" },
     { "action": "tool.use", "resource": "shell:git push *", "effect": "deny" },
     { "action": "tool.use", "resource": "shell:git pull *", "effect": "deny" },
-    { "action": "tool.use", "resource": "shell:git add *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git reset *", "effect": "deny" },
     { "action": "tool.use", "resource": "shell:git rebase *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git filter-branch *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git filter-repo *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git reflog expire *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git gc *--prune=now*", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git checkout *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git commit", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git commit *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git stash", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git stash *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:gh auth status *--show-token*", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:gh auth status *-t*", "effect": "deny" },
+
     { "action": "tool.use", "resource": "shell:sudo *", "effect": "deny" },
     { "action": "tool.use", "resource": "shell:su *", "effect": "deny" },
     { "action": "tool.use", "resource": "shell:rm *", "effect": "deny" },
     { "action": "tool.use", "resource": "shell:mv *", "effect": "deny" },
-    { "action": "tool.use", "resource": "shell:sed -i *", "effect": "deny" }
+    { "action": "tool.use", "resource": "shell:sed -i *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:sed *--in-place*", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:find *-delete*", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:chmod *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:truncate *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:shred *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:mkfs *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:dd *", "effect": "deny" },
+
+    { "action": "tool.use", "resource": "shell:npm publish *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:twine upload *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:gem push *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:cargo publish *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:dotnet nuget push *", "effect": "deny" },
+
+    { "action": "tool.use", "resource": "shell:nc *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:netcat *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:ncat *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:scp *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:rsync *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:sftp *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:ftp *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:telnet *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:ssh *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:socat *", "effect": "deny" },
+
+    { "action": "tool.use", "resource": "shell:pip install *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:pip3 install *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:python -m pip install *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:python3 -m pip install *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:npm install *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:cargo install *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:go install *", "effect": "deny" },
+
+    { "action": "tool.use", "resource": "shell:semgrep *", "effect": "deny" }
   ]
 }

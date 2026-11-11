@@ -1,7 +1,19 @@
 {
+  // Read-only inspection plus allowlisted local helpers (recording,
+  // conversion, py_compile). Interpreters are excluded: awk/gawk `system()`,
+  // sed `e`/`w`, and `sed -n`/`jq .` read or execute arbitrary files, so they
+  // fall to ask. `sed -i` and all semgrep use are denied in 90-deny.json.
   "permissions": [
     { "action": "shell", "resource": "bash -n *", "effect": "allow" },
+    { "action": "shell", "resource": "jq empty *", "effect": "allow" },
+    { "action": "shell", "resource": "local-transcribe record *", "effect": "allow" },
+    { "action": "shell", "resource": "ls *", "effect": "allow" },
+    { "action": "shell", "resource": "md2html *", "effect": "allow" },
+    { "action": "shell", "resource": "meet-summarize-query *", "effect": "allow" },
     { "action": "shell", "resource": "python -m py_compile *", "effect": "allow" },
-    { "action": "shell", "resource": "python3 -m py_compile *", "effect": "allow" }
+    { "action": "shell", "resource": "python3 -m py_compile *", "effect": "allow" },
+    { "action": "shell", "resource": "trim *", "effect": "allow" },
+    { "action": "shell", "resource": "wc *", "effect": "allow" },
+    { "action": "shell", "resource": "which *", "effect": "allow" }
   ]
 }

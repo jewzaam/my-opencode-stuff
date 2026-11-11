@@ -1,12 +1,20 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "permissions": [
+    // No blanket edit allow. `edit *` also matches absolute paths, and
+    // `edit /* ask` only catches POSIX-absolute resources. Edits that no rule
+    // below names fall through to the ask baseline in 00-baseline.json.
     { "action": "shell", "resource": "pwd", "effect": "allow" },
 
     { "action": "external_directory", "resource": "~/source/knowledgebase/*", "effect": "allow" },
     { "action": "external_directory", "resource": "~/source/standards/*", "effect": "allow" },
 
-    { "action": "edit", "resource": "~/source/knowledgebase/**", "effect": "allow" },
-    { "action": "edit", "resource": "~/source/standards/**", "effect": "allow" }
+    { "action": "edit", "resource": "~/source/knowledgebase/*", "effect": "allow" },
+    { "action": "edit", "resource": "~/source/standards/*", "effect": "allow" },
+
+    // Own skill roots only. `/home/*` also matched every other user's skills
+    // and let an absolute-path form bypass the home scoping.
+    { "action": "shell", "resource": "~/.claude/skills/*", "effect": "allow" },
+    { "action": "shell", "resource": "$HOME/.claude/skills/*", "effect": "allow" }
   ]
 }
