@@ -30,6 +30,9 @@ DEFAULT_FRAGMENT = ROOT / "opencode" / "opencode.json.d" / "15-models.json"
 
 _FIRST_DIGIT = re.compile(r"\d")
 _BUILD_SUFFIX = re.compile(r"-\d{3,}$")
+_OPENAI_MODEL = re.compile(r"^(?:(?:gpt|chatgpt|codex)(?:$|[-_.])|o\d)", re.I)
+
+RESPONSES_PACKAGE = "@opencode/ai/providers/openai-compatible/responses"
 
 
 class RefreshError(Exception):
@@ -187,6 +190,11 @@ def display_names(entries: list[Any]) -> dict[str, str]:
     return names
 
 
+def is_openai_model(model_id: str) -> bool:
+    """True for OpenAI-branded IDs, which OpenCode must call via /responses."""
+    return bool(_OPENAI_MODEL.match(model_id.rsplit("/", 1)[-1]))
+
+
 def build_models(
     entries: list[Any],
     *,
@@ -216,6 +224,8 @@ def build_models(
         if isinstance(previous, dict):
             row.update(previous)
         row["name"] = names.get(model_id) or generate_name(model_id)
+        if is_openai_model(model_id):
+            row["package"] = RESPONSES_PACKAGE
         models[model_id] = row
     return models
 
