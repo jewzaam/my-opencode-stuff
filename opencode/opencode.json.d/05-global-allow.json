@@ -8,6 +8,9 @@
 
     { "action": "external_directory", "resource": "~/source/knowledgebase/*", "effect": "allow" },
     { "action": "external_directory", "resource": "~/source/standards/*", "effect": "allow" },
+    // Truncated tool output the harness spills here. Read-only: no blanket edit
+    // allow exists, so this boundary cannot leak into write.
+    { "action": "external_directory", "resource": "~/.local/share/opencode/tool-output/*", "effect": "allow" },
 
     { "action": "edit", "resource": "~/source/knowledgebase/*", "effect": "allow" },
     { "action": "edit", "resource": "~/source/standards/*", "effect": "allow" },
