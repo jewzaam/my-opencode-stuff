@@ -8,11 +8,13 @@ from pathlib import Path
 from unittest import mock
 
 from scripts.refresh_models import (
+    RESPONSES_PACKAGE,
     RefreshError,
     build_models,
     existing_models,
     fragment,
     generate_name,
+    is_openai_model,
     latest_by_class,
     main,
     models_url,
@@ -50,6 +52,42 @@ class TestGenerateName(unittest.TestCase):
 
     def test_keeps_single_number(self):
         self.assertEqual(generate_name("model-4"), "model 4")
+
+
+class TestOpenAiModel(unittest.TestCase):
+    def test_recognizes_openai_branded_ids(self):
+        for model_id in (
+            "gpt-6-luna",
+            "gpt-4o",
+            "chatgpt-4o-latest",
+            "codex-mini",
+            "o3-mini",
+            "openai/gpt-5",
+        ):
+            with self.subTest(model_id=model_id):
+                self.assertTrue(is_openai_model(model_id))
+
+    def test_rejects_other_vendors(self):
+        for model_id in (
+            "rits/zai-org/glm-5-3",
+            "rits/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+            "claude-3-opus",
+            "gemini-2-0-flash",
+            "mistral-large",
+        ):
+            with self.subTest(model_id=model_id):
+                self.assertFalse(is_openai_model(model_id))
+
+    def test_openai_models_get_the_responses_package(self):
+        models = build_models(
+            [{"id": "gpt-6-luna"}, {"id": "rits/zai-org/glm-5-3"}]
+        )
+        self.assertEqual(models["gpt-6-luna"]["package"], RESPONSES_PACKAGE)
+        self.assertNotIn("package", models["rits/zai-org/glm-5-3"])
+
+    def test_generated_name_matches_the_package_example(self):
+        models = build_models([{"id": "gpt-6-luna"}])
+        self.assertEqual(models["gpt-6-luna"]["name"], "gpt 6 luna")
 
 
 class TestLatestByClass(unittest.TestCase):
