@@ -543,6 +543,14 @@ class TestFragments(unittest.TestCase):
             "allow",
         )
         self.assertEqual(
+            resolve(
+                rules,
+                "external_directory",
+                str(home / ".local/share/opencode/tool-output/x"),
+            ),
+            "allow",
+        )
+        self.assertEqual(
             resolve(rules, "external_directory", "/tmp/elsewhere/file"), "ask"
         )
 

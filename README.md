@@ -33,6 +33,21 @@ These guards are for host use. Inside an OpenShell sandbox the sandbox policy is
 
 Not ported: explicit MCP tool allow rules, WebFetch domain allowlists, Claude plugin/statusline settings, and skill `!` command injection (OpenCode does not expand it). Any permission action the plugin does not model is downgraded to `ask`, so an MCP call reaching the permission hook is prompted rather than silently allowed; a call that bypasses that hook is not seen.
 
+## Refreshing a provider model list
+
+OpenCode reads model metadata from models.dev for known providers; custom providers carry a `models` map in the config. `scripts/refresh_models.py` replaces that map with the list the provider's `/v1/models` endpoint reports:
+
+```bash
+python3 -m scripts.refresh_models --provider enmaas --dry-run
+python3 -m scripts.refresh_models --provider enmaas
+```
+
+`--provider` is the only required input. Everything else is read from the provider entry in the config (`--config`, default `$OPENCODE_DIR/opencode.json`, then `~/.config/opencode/opencode.json`): the base URL from `settings.baseURL`, the credential from `settings.apiKey` (including the `{env:VAR}` form) or from the variables named in the entry's `env` list. `--url` and `--token` override; `$OPENAI_BASE_URL` and `$OPENAI_API_KEY` are the last resort.
+
+The `models` map is replaced, so a model the provider no longer lists disappears. Metadata the endpoint cannot report (`limit`, `cost`, `reasoning`) is carried over per model ID from the entry being replaced. Every reported ID is kept; `--latest-only` collapses each family (everything before the first digit) to its newest version, which also merges distinct models such as `gpt-4o` and `gpt-4o-mini`.
+
+The config is updated in place. A file carrying `//` comments is refused, because the write would drop them: point `--output` at a fragment instead and reconcile it (`--shape provider` for the deprecated key). Reconcile deep-merges objects, so a model deleted from such a fragment stays in the live file and has to be removed by hand.
+
 ## Installation
 
 `harness_guards` must be importable by the `python3` OpenCode inherits; `make reconcile` in `my-claude-stuff` installs it. Then deploy this config:
