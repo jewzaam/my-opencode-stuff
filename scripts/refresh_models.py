@@ -120,10 +120,20 @@ def fetch_catalog(*, timeout: float) -> dict[str, dict[str, str]]:
     request = urllib.request.Request(CATALOG_URL, headers={"User-Agent": "refresh-models"})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         payload = json.load(response)
-    return {
-        provider_id: {model_id: model["name"] for model_id, model in provider["models"].items()}
-        for provider_id, provider in payload.items()
-    }
+    if not isinstance(payload, dict):
+        raise ValueError("models.dev response is not a JSON object")
+    # Skip malformed entries so one bad third-party record does not discard the rest.
+    catalog: dict[str, dict[str, str]] = {}
+    for provider_id, provider in payload.items():
+        models = provider.get("models") if isinstance(provider, dict) else None
+        if not isinstance(models, dict):
+            continue
+        catalog[provider_id] = {
+            model_id: model["name"]
+            for model_id, model in models.items()
+            if isinstance(model, dict) and isinstance(model.get("name"), str) and model["name"]
+        }
+    return catalog
 
 
 def model_class(model_id: str) -> tuple[str, str]:
@@ -561,7 +571,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             catalog = fetch_catalog(timeout=args.timeout)
         except Exception as error:  # names are cosmetic; never fail the refresh over them
-            print(f"refresh-models: warning: models.dev unavailable: {error}", file=sys.stderr)
+            print(
+                f"refresh-models: warning: models.dev unavailable: "
+                f"{type(error).__name__}: {error}",
+                file=sys.stderr,
+            )
             catalog = {}
         models = build_models(
             entries,

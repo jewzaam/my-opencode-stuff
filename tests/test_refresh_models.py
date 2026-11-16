@@ -207,6 +207,36 @@ class TestFetchCatalog(unittest.TestCase):
         request = urlopen.call_args.args[0]
         self.assertEqual(request.header_items(), [("User-agent", "refresh-models")])
 
+    def test_skips_malformed_entries_and_keeps_valid_ones(self):
+        payload = {
+            "openai": {
+                "models": {
+                    "gpt-5.3-codex": {"name": "GPT-5.3 Codex"},
+                    "no-name": {},
+                    "empty-name": {"name": ""},
+                    "not-a-dict": "x",
+                }
+            },
+            "no-models": {},
+            "bad-models": {"models": []},
+            "not-a-provider": "x",
+        }
+        with mock.patch(
+            "scripts.refresh_models.urllib.request.urlopen",
+            return_value=io.BytesIO(json.dumps(payload).encode()),
+        ):
+            catalog = fetch_catalog(timeout=5.0)
+
+        self.assertEqual(catalog, {"openai": {"gpt-5.3-codex": "GPT-5.3 Codex"}})
+
+    def test_rejects_non_object_payload(self):
+        with mock.patch(
+            "scripts.refresh_models.urllib.request.urlopen",
+            return_value=io.BytesIO(b"[]"),
+        ):
+            with self.assertRaises(ValueError):
+                fetch_catalog(timeout=5.0)
+
 
 class TestConfigShapes(unittest.TestCase):
     def test_reads_v2_providers(self):
@@ -329,6 +359,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual(models["m-2"]["name"], "m 2")
         self.assertIn("warning", err.getvalue())
         self.assertIn("models.dev", err.getvalue())
+        self.assertIn("OSError: offline", err.getvalue())
 
     def test_writes_fragment(self):
         import io
