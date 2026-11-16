@@ -10,6 +10,9 @@ model class, and writes a config fragment the repository reconciles into
 
 Metadata the endpoint cannot supply (``limit``, ``cost``, ``reasoning``) is
 carried over from the existing entry for model IDs that survive the refresh.
+
+Display names come from the provider, then the public models.dev catalog, then
+the existing entry, then a name generated from the model ID.
 """
 
 import argparse
@@ -33,6 +36,10 @@ _BUILD_SUFFIX = re.compile(r"-\d{3,}$")
 _OPENAI_MODEL = re.compile(r"^(?:(?:gpt|chatgpt|codex)(?:$|[-_.])|o\d)", re.I)
 
 RESPONSES_PACKAGE = "@opencode/ai/providers/openai-compatible/responses"
+
+CATALOG_URL = "https://models.dev/api.json"
+# Vendors that list only their own models, so an exact ID match is trustworthy.
+CATALOG_VENDORS = ("openai", "anthropic", "google")
 
 
 class RefreshError(Exception):
@@ -107,6 +114,18 @@ def fetch_models(url: str, *, headers: dict[str, str], timeout: float) -> list[A
     return data
 
 
+def fetch_catalog(*, timeout: float) -> dict[str, dict[str, str]]:
+    """Fetch models.dev as ``{provider: {model ID: name}}``, without credentials."""
+    # models.dev rejects urllib's default User-Agent with HTTP 403.
+    request = urllib.request.Request(CATALOG_URL, headers={"User-Agent": "refresh-models"})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        payload = json.load(response)
+    return {
+        provider_id: {model_id: model["name"] for model_id, model in provider["models"].items()}
+        for provider_id, provider in payload.items()
+    }
+
+
 def model_class(model_id: str) -> tuple[str, str]:
     """Split a model ID into its non-numeric prefix and its version."""
     match = _FIRST_DIGIT.search(model_id)
@@ -175,19 +194,37 @@ def model_ids(entries: list[Any]) -> list[str]:
 
 
 def display_names(entries: list[Any]) -> dict[str, str]:
-    """Map model ID to the provider's display name, when it differs."""
+    """Map model ID to the provider's ``display_name`` or ``name``, when it differs."""
     names: dict[str, str] = {}
     for entry in entries:
         if not isinstance(entry, dict):
             continue
         model_id = entry.get("id")
-        display_name = entry.get("display_name")
-        if not isinstance(model_id, str) or not isinstance(display_name, str):
+        if not isinstance(model_id, str):
             continue
-        label = display_name.strip()
-        if label and label != model_id.strip():
-            names[model_id.strip()] = label
+        for key in ("display_name", "name"):
+            value = entry.get(key)
+            label = value.strip() if isinstance(value, str) else ""
+            if label and label != model_id.strip():
+                names[model_id.strip()] = label
+                break
     return names
+
+
+def catalog_name(
+    catalog: dict[str, dict[str, str]], model_id: str, provider_id: str
+) -> str | None:
+    """Look up a model's name in models.dev by exact ID.
+
+    The selected provider wins, then the vendors in ``CATALOG_VENDORS``, then any
+    name all other providers agree on. Conflicting names are skipped.
+    """
+    for source in (provider_id, *CATALOG_VENDORS):
+        name = catalog.get(source, {}).get(model_id)
+        if name:
+            return name
+    names = {models[model_id] for models in catalog.values() if model_id in models}
+    return names.pop() if len(names) == 1 else None
 
 
 def is_openai_model(model_id: str) -> bool:
@@ -200,16 +237,20 @@ def build_models(
     *,
     existing: dict[str, Any] | None = None,
     latest_only: bool = False,
+    catalog: dict[str, str | None] | None = None,
 ) -> dict[str, dict]:
     """Convert provider model records into an OpenCode ``models`` map.
 
     Entries already present in ``existing`` keep their metadata, so a refresh
-    does not discard limits or costs the endpoint cannot report. Every ID the
-    endpoint reports is kept unless ``latest_only`` is set; the family heuristic
+    does not discard limits or costs the endpoint cannot report. A name comes
+    from the provider, then ``catalog`` (model ID to models.dev name), then the
+    existing entry, then ``generate_name``. Every ID the endpoint reports is
+    kept unless ``latest_only`` is set; the family heuristic
     treats everything before the first digit as one class, so it also collapses
     distinct models such as ``gpt-4o`` and ``gpt-4o-mini``.
     """
     existing = existing or {}
+    catalog = catalog or {}
     names = display_names(entries)
     ids = model_ids(entries)
     if not ids:
@@ -223,7 +264,12 @@ def build_models(
         previous = existing.get(model_id)
         if isinstance(previous, dict):
             row.update(previous)
-        row["name"] = names.get(model_id) or generate_name(model_id)
+        row["name"] = (
+            names.get(model_id)
+            or catalog.get(model_id)
+            or row.get("name")
+            or generate_name(model_id)
+        )
         if is_openai_model(model_id):
             row["package"] = RESPONSES_PACKAGE
         models[model_id] = row
@@ -503,18 +549,28 @@ def main(argv: list[str] | None = None) -> int:
                 f"in {config_path}"
             )
 
-        models = build_models(
-            fetch_models(
-                models_url(base_url),
-                headers=auth_headers(
-                    token=token,
-                    auth=args.auth,
-                    api_version="2023-06-01" if args.auth == "api-key" else None,
-                ),
-                timeout=args.timeout,
+        entries = fetch_models(
+            models_url(base_url),
+            headers=auth_headers(
+                token=token,
+                auth=args.auth,
+                api_version="2023-06-01" if args.auth == "api-key" else None,
             ),
+            timeout=args.timeout,
+        )
+        try:
+            catalog = fetch_catalog(timeout=args.timeout)
+        except Exception as error:  # names are cosmetic; never fail the refresh over them
+            print(f"refresh-models: warning: models.dev unavailable: {error}", file=sys.stderr)
+            catalog = {}
+        models = build_models(
+            entries,
             existing=existing_models(config, args.provider),
             latest_only=args.latest_only,
+            catalog={
+                model_id: catalog_name(catalog, model_id, args.provider)
+                for model_id in model_ids(entries)
+            },
         )
         if args.output:
             result = fragment(args.provider, models, shape=args.shape)

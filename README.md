@@ -46,6 +46,8 @@ python3 -m scripts.refresh_models --provider enmaas
 
 The `models` map is replaced, so a model the provider no longer lists disappears. Metadata the endpoint cannot report (`limit`, `cost`, `reasoning`) is carried over per model ID from the entry being replaced. OpenAI-branded IDs (`gpt-*`, `chatgpt-*`, `codex-*`, `o1`/`o3`/`o4`-series, optionally behind a vendor path) also get `package: @opencode/ai/providers/openai-compatible/responses`, because OpenCode must call them through `/responses`; every other ID keeps its `name` only. Every reported ID is kept; `--latest-only` collapses each family (everything before the first digit) to its newest version, which also merges distinct models such as `gpt-4o` and `gpt-4o-mini`.
 
+Display names come from the provider's `display_name` or `name`, then the public [models.dev](https://models.dev/api.json) catalog, then the name already configured, then a name generated from the ID. Catalog lookups use the exact model ID: the selected provider's entry first, then OpenAI, Anthropic, or Google (so `gpt-5.3-codex` through `enmaas` becomes `GPT-5.3 Codex`), then any name the other providers agree on. The catalog request sends no credentials; if it fails, the script warns on stderr and keeps going.
+
 The config is updated in place. A file carrying `//` comments is refused, because the write would drop them: point `--output` at a fragment instead and reconcile it (`--shape provider` for the deprecated key). Reconcile deep-merges objects, so a model deleted from such a fragment stays in the live file and has to be removed by hand.
 
 ## Installation
